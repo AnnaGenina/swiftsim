@@ -48,6 +48,8 @@
  */
 struct star_formation {
 
+  /* Properties of K-S law and high-density K-S law **********************/
+
   /*! Normalization of the KS star formation law (internal units) */
   double KS_normalization;
 
@@ -69,17 +71,10 @@ struct star_formation {
   /*! KS high density normalization (H atoms per cm^3)  */
   double KS_high_den_thresh_HpCM3;
 
-  /*! Critical overdensity */
-  double min_over_den;
-
-  /*! Dalla Vecchia & Schaye entropy differnce criterion */
-  double entropy_margin_threshold_dex;
-
-  /*! 10^Tdex of Dalla Vecchia & Schaye entropy difference criterion */
-  double ten_to_entropy_margin_threshold_dex;
-
   /*! gas fraction */
   double fgas;
+
+  /* Properties of internal SF law (converted from K-S) *********************/
 
   /*! Star formation law slope */
   double SF_power_law;
@@ -92,6 +87,8 @@ struct star_formation {
 
   /*! Star formation high density normalization (internal units) */
   double SF_high_den_normalization;
+
+  /* Internal EoS of the SF law (not always used) **************************/
 
   /*! Polytropic index */
   double EOS_polytropic_index;
@@ -117,11 +114,28 @@ struct star_formation {
   /*! Inverse of EOS density norm (internal units) */
   double EOS_density_c_inv;
 
+  /* Direct conversion to stars **********************************************/
+
   /*! Max physical density (H atoms per cm^3)*/
   double max_gas_density_HpCM3;
 
   /*! Max physical density (internal units) */
   double max_gas_density;
+
+  /* SF threshold ************************************************************/
+
+  /*! Critical overdensity above which SF is allowed */
+  double min_over_den;
+
+  /*! (Subgrid) temperature threshold for SF to use on its own */
+  double T_threshold1;
+
+  /*! (Subgrid) temperature threshold for SF to use combined with the density
+   * threshold */
+  double T_threshold2;
+
+  /*! (Subgrid) Hydrogen number density threshold for SF */
+  double nH_threshold;
 };
 
 /**
@@ -158,8 +172,7 @@ INLINE static double EOS_entropy(const double n_H,
 }
 
 /**
- * @brief Calculate if the gas has the potential of becoming
- * a star.
+ * @brief Calculate if the satisfies the conditions for star formation.
  *
  * @param starform the star formation law properties to use.
  * @param p the gas particles.
@@ -197,20 +210,26 @@ INLINE static int star_formation_is_star_forming(
       units_cgs_conversion_factor(us, UNIT_CONV_NUMBER_DENSITY);
 
   /* Get the Hydrogen mass fraction */
-  float const* metal_fraction =
-      chemistry_get_metal_mass_fraction_for_star_formation(p);
-  const double XH = metal_fraction[chemistry_element_H];
+  const double XH = chemistry_get_metal_mass_fraction_for_star_formation(
+      p)[chemistry_element_H];
 
   /* Get the subgrid properties
    * Note these are both in physical frame already */
+  const double subgrid_T_cgs = p->cooling_data.subgrid_temp;
   const double subgrid_rho = p->cooling_data.subgrid_dens;
   const double subgrid_n_H = subgrid_rho * XH / phys_const->const_proton_mass;
   const double subgrid_n_H_cgs = subgrid_n_H * number_density_to_cgs;
-  const float subgrid_T_cgs = p->cooling_data.subgrid_temp;
 
-  /* Second, determine whether we are cold and dense enough */
-  return ((subgrid_T_cgs < 1000) ||
-          (subgrid_T_cgs < 31623 && subgrid_n_H_cgs > 10));
+  /* Second, determine whether we are very cold or (cold and dense) enough
+   *
+   * This would typically be (T < 10^3 OR (T < 10^4.5 && n_H > 10))
+   * with T and n_H subgrid properties.
+   *
+   * Recall that particles above the EoS have T_sub = T and rho_sub = rho.
+   */
+  return ((subgrid_T_cgs < starform->T_threshold1) ||
+          (subgrid_T_cgs < starform->T_threshold2 &&
+           subgrid_n_H_cgs > starform->nH_threshold));
 }
 
 /**
@@ -543,11 +562,13 @@ INLINE static void starformation_init_backend(
   starform->max_gas_density =
       starform->max_gas_density_HpCM3 * number_density_from_cgs;
 
-  starform->entropy_margin_threshold_dex = parser_get_opt_param_double(
-      parameter_file, "EAGLEStarFormation:EOS_entropy_margin_dex", FLT_MAX);
-
-  starform->ten_to_entropy_margin_threshold_dex =
-      exp10(starform->entropy_margin_threshold_dex);
+  /* Read threshold properties */
+  starform->T_threshold1 = parser_get_param_double(
+      parameter_file, "EAGLEStarFormation:threshold_temperature1_K");
+  starform->T_threshold2 = parser_get_param_double(
+      parameter_file, "EAGLEStarFormation:threshold_temperature2_K");
+  starform->nH_threshold = parser_get_param_double(
+      parameter_file, "EAGLEStarFormation:threshold_number_density_H_p_cm3");
 }
 
 /**
@@ -572,11 +593,13 @@ INLINE static void starformation_print_backend(
       "temperature = %e K",
       starform->EOS_polytropic_index, starform->EOS_density_norm_HpCM3,
       starform->EOS_temperature_norm_K);
-  message("Temperature threshold is given by Dalla Vecchia and Schaye (2012)");
-  message("The temperature threshold offset from the EOS is given by: %e dex",
-          starform->entropy_margin_threshold_dex);
   message("Running with a maximum gas density given by: %e #/cm^3",
           starform->max_gas_density_HpCM3);
+  message(
+      "Star formation threshold is T_sub < 10^%.1f K OR (T_sub < 10^%.1f K AND "
+      "nH_sub > %.2f cm^-3",
+      log10(starform->T_threshold1), log10(starform->T_threshold2),
+      starform->nH_threshold);
 }
 
 /**
