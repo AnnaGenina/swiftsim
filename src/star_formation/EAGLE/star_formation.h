@@ -93,27 +93,6 @@ struct star_formation {
   /*! Star formation high density normalization (internal units) */
   double SF_high_den_normalization;
 
-  /*! Density threshold to form stars (internal units) */
-  double density_threshold;
-
-  /*! Density threshold to form stars in user units */
-  double density_threshold_HpCM3;
-
-  /*! Maximum density threshold to form stars (internal units) */
-  double density_threshold_max;
-
-  /*! Maximum density threshold to form stars (H atoms per cm^3) */
-  double density_threshold_max_HpCM3;
-
-  /*! Reference metallicity for metal-dependant threshold */
-  double Z0;
-
-  /*! Inverse of reference metallicity */
-  double Z0_inv;
-
-  /*! critical density Metallicity power law (internal units) */
-  double n_Z0;
-
   /*! Polytropic index */
   double EOS_polytropic_index;
 
@@ -144,36 +123,6 @@ struct star_formation {
   /*! Max physical density (internal units) */
   double max_gas_density;
 };
-
-/**
- * @brief Computes the density threshold for star-formation fo a given total
- * metallicity.
- *
- * Follows Schaye (2004) eq. 19 and 24 (see also Schaye et al. 2015, eq. 2).
- *
- * @param Z The metallicity (metal mass fraction).
- * @param starform The properties of the star formation model.
- * @param phys_const The physical constants.
- * @return The physical density threshold for star formation in internal units.
- */
-INLINE static double star_formation_threshold(
-    const double Z, const struct star_formation* starform,
-    const struct phys_const* phys_const) {
-
-  double density_threshold;
-
-  /* Schaye (2004), eq. 19 and 24 */
-  if (Z > 0.) {
-    density_threshold = starform->density_threshold *
-                        powf(Z * starform->Z0_inv, starform->n_Z0);
-    density_threshold = min(density_threshold, starform->density_threshold_max);
-  } else {
-    density_threshold = starform->density_threshold_max;
-  }
-
-  /* Convert to mass density */
-  return density_threshold * phys_const->const_proton_mass;
-}
 
 /**
  * @brief Compute the pressure on the polytropic equation of state for a given
@@ -231,8 +180,8 @@ INLINE static int star_formation_is_star_forming(
     const struct cooling_function_data* restrict cooling,
     const struct entropy_floor_properties* restrict entropy_floor_props) {
 
-  /* Minimal density (converted from mean baryonic density) for star formation
-   */
+  /* Minimal density (converted from mean baryonic density)
+   * for star formation */
   const double rho_mean_b_times_min_over_den =
       cosmo->mean_density_Omega_b * starform->min_over_den;
 
@@ -260,7 +209,8 @@ INLINE static int star_formation_is_star_forming(
   const float subgrid_T_cgs = p->cooling_data.subgrid_temp;
 
   /* Second, determine whether we are cold and dense enough */
-  return (subgrid_T_cgs < 1000 && subgrid_n_H_cgs > 10);
+  return ((subgrid_T_cgs < 1000) ||
+          (subgrid_T_cgs < 31623 && subgrid_n_H_cgs > 10));
 }
 
 /**
@@ -598,32 +548,6 @@ INLINE static void starformation_init_backend(
 
   starform->ten_to_entropy_margin_threshold_dex =
       exp10(starform->entropy_margin_threshold_dex);
-
-  /* Read the normalization of the metallicity dependent critical
-   * density*/
-  starform->density_threshold_HpCM3 = parser_get_param_double(
-      parameter_file, "EAGLEStarFormation:threshold_norm_H_p_cm3");
-
-  /* Convert to internal units */
-  starform->density_threshold =
-      starform->density_threshold_HpCM3 * number_density_from_cgs;
-
-  /* Read the scale metallicity Z0 */
-  starform->Z0 = parser_get_param_double(parameter_file,
-                                         "EAGLEStarFormation:threshold_Z0");
-  starform->Z0_inv = 1. / starform->Z0;
-
-  /* Read the power law of the critical density scaling */
-  starform->n_Z0 = parser_get_param_double(
-      parameter_file, "EAGLEStarFormation:threshold_slope");
-
-  /* Read the maximum allowed density for star formation */
-  starform->density_threshold_max_HpCM3 = parser_get_param_double(
-      parameter_file, "EAGLEStarFormation:threshold_max_density_H_p_cm3");
-
-  /* Convert to internal units */
-  starform->density_threshold_max =
-      starform->density_threshold_max_HpCM3 * number_density_from_cgs;
 }
 
 /**
@@ -648,13 +572,6 @@ INLINE static void starformation_print_backend(
       "temperature = %e K",
       starform->EOS_polytropic_index, starform->EOS_density_norm_HpCM3,
       starform->EOS_temperature_norm_K);
-  message("Density threshold follows Schaye (2004)");
-  message(
-      "the normalization of the density threshold is given by"
-      " %e #/cm^3, with metallicity slope of %e, and metallicity normalization"
-      " of %e, the maximum density threshold is given by %e #/cm^3",
-      starform->density_threshold_HpCM3, starform->n_Z0, starform->Z0,
-      starform->density_threshold_max_HpCM3);
   message("Temperature threshold is given by Dalla Vecchia and Schaye (2012)");
   message("The temperature threshold offset from the EOS is given by: %e dex",
           starform->entropy_margin_threshold_dex);
