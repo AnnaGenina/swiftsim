@@ -67,15 +67,6 @@
 
 char logger_file_format[logger_format_size] = "SWIFT_LOGGER";
 
-/*
- * The two following defines need to correspond to the list's order
- * in logger_init_masks.
- */
-/* Index of the special flags in the list of masks */
-#define logger_index_special_flags 0
-/* Index of the timestamp in the list of masks */
-#define logger_index_timestamp 1
-
 /**
  * @brief Write the header of a record (offset + mask).
  *
@@ -183,10 +174,6 @@ void logger_copy_part_fields(const struct logger_writer *log,
   /* Write the header. */
   buff = logger_write_record_header(buff, &mask, offset, offset_new);
 
-  /* Write the hydro fields */
-  buff = hydro_logger_write_particle(log->mask_data_pointers.hydro, p, xp,
-                                     &mask, buff);
-
   /* Special flags */
   if (mask & log->logger_mask_data[logger_index_special_flags].mask) {
     memcpy(buff, &special_flags,
@@ -194,6 +181,10 @@ void logger_copy_part_fields(const struct logger_writer *log,
     buff += log->logger_mask_data[logger_index_special_flags].size;
     mask &= ~log->logger_mask_data[logger_index_special_flags].mask;
   }
+
+  /* Write the hydro fields */
+  buff = hydro_logger_write_particle(log->mask_data_pointers.hydro, p, xp,
+      &mask, buff);
 
 #ifdef SWIFT_DEBUG_CHECKS
   if (mask) {
@@ -240,17 +231,26 @@ void logger_log_parts(struct logger_writer *log, const struct part *p,
 
   /* Build the special flag */
   const uint32_t special_flags = logger_pack_flags_and_data(flag, data);
+  const int size_special_flag = log->logger_mask_data[logger_index_special_flags].size;
 
   /* Compute the size of the buffer. */
   size_t size_total = 0;
   if (log_all_fields) {
-    size_total = count * (log->max_size_record_part + logger_header_bytes);
+    size_t size = log->max_size_record_part + logger_header_bytes;
+    if (flag != 0) {
+      size += size_special_flag;
+    }
+    size_total = count * size;
   } else {
     for (int i = 0; i < count; i++) {
       unsigned int mask = 0;
       size_t size = 0;
       hydro_logger_compute_size_and_mask(log->mask_data_pointers.hydro, &p[i],
                                          &xp[i], log_all_fields, &size, &mask);
+
+      if (flag != 0) {
+        size += size_special_flag;
+      }
       size_total += size + logger_header_bytes;
     }
   }
@@ -268,8 +268,15 @@ void logger_log_parts(struct logger_writer *log, const struct part *p,
                                        &xp[i], log_all_fields, &size, &mask);
     size += logger_header_bytes;
 
-    if (special_flags != 0) {
+    /* Add the special flag. */
+    if (flag != 0) {
       mask |= log->logger_mask_data[logger_index_special_flags].mask;
+      size += size_special_flag;
+
+      /* reset the offset of the previous log */
+      if (flag & logger_flag_create || flag & logger_flag_mpi_enter) {
+        xp[i].logger_data.last_offset = 0;
+      }
     }
 
     /* Copy everything into the buffer */
@@ -320,10 +327,6 @@ void logger_copy_spart_fields(const struct logger_writer *log,
   /* Write the header. */
   buff = logger_write_record_header(buff, &mask, offset, offset_new);
 
-  /* Write the stellar fields */
-  buff = stars_logger_write_particle(log->mask_data_pointers.stars, sp, &mask,
-                                     buff);
-
   /* Special flags */
   if (mask & log->logger_mask_data[logger_index_special_flags].mask) {
     memcpy(buff, &special_flags,
@@ -331,6 +334,10 @@ void logger_copy_spart_fields(const struct logger_writer *log,
     buff += log->logger_mask_data[logger_index_special_flags].size;
     mask &= ~log->logger_mask_data[logger_index_special_flags].mask;
   }
+
+  /* Write the stellar fields */
+  buff = stars_logger_write_particle(log->mask_data_pointers.stars, sp, &mask,
+                                     buff);
 
 #ifdef SWIFT_DEBUG_CHECKS
   if (mask) {
@@ -372,17 +379,25 @@ void logger_log_sparts(struct logger_writer *log, struct spart *sp, int count,
                        const enum logger_special_flags flag, const int data) {
   /* Build the special flag */
   const uint32_t special_flags = logger_pack_flags_and_data(flag, data);
+  const int size_special_flag = log->logger_mask_data[logger_index_special_flags].size;
 
   /* Compute the size of the buffer. */
   size_t size_total = 0;
   if (log_all_fields) {
-    size_total = count * (log->max_size_record_spart + logger_header_bytes);
+    size_t size = log->max_size_record_spart + logger_header_bytes;
+    if (flag != 0) {
+      size += size_special_flag;
+    }
+    size_total = count * size;
   } else {
     for (int i = 0; i < count; i++) {
       unsigned int mask = 0;
       size_t size = 0;
       stars_logger_compute_size_and_mask(log->mask_data_pointers.stars, &sp[i],
                                          log_all_fields, &size, &mask);
+      if (flag != 0) {
+        size += size_special_flag;
+      }
       size_total += size + logger_header_bytes;
     }
   }
@@ -399,8 +414,15 @@ void logger_log_sparts(struct logger_writer *log, struct spart *sp, int count,
                                        log_all_fields, &size, &mask);
     size += logger_header_bytes;
 
-    if (special_flags != 0) {
+    /* Add the special flag. */
+    if (flag != 0) {
       mask |= log->logger_mask_data[logger_index_special_flags].mask;
+      size += size_special_flag;
+
+      /* reset the offset of the previous log */
+      if (flag & logger_flag_create || flag & logger_flag_mpi_enter) {
+        sp[i].logger_data.last_offset = 0;
+      }
     }
 
     /* Copy everything into the buffer */
@@ -451,10 +473,6 @@ void logger_copy_gpart_fields(const struct logger_writer *log,
   /* Write the header. */
   buff = logger_write_record_header(buff, &mask, offset, offset_new);
 
-  /* Write the hydro fields */
-  buff = gravity_logger_write_particle(log->mask_data_pointers.gravity, gp,
-                                       &mask, buff);
-
   /* Special flags */
   if (mask & log->logger_mask_data[logger_index_special_flags].mask) {
     memcpy(buff, &special_flags,
@@ -462,6 +480,10 @@ void logger_copy_gpart_fields(const struct logger_writer *log,
     buff += log->logger_mask_data[logger_index_special_flags].size;
     mask &= ~log->logger_mask_data[logger_index_special_flags].mask;
   }
+
+  /* Write the hydro fields */
+  buff = gravity_logger_write_particle(log->mask_data_pointers.gravity, gp,
+                                       &mask, buff);
 
 #ifdef SWIFT_DEBUG_CHECKS
   if (mask) {
@@ -502,11 +524,16 @@ void logger_log_gparts(struct logger_writer *log, struct gpart *p, int count,
                        const enum logger_special_flags flag, const int data) {
   /* Build the special flag */
   const uint32_t special_flags = logger_pack_flags_and_data(flag, data);
+  const int size_special_flag = log->logger_mask_data[logger_index_special_flags].size;
 
   /* Compute the size of the buffer. */
   size_t size_total = 0;
   if (log_all_fields) {
-    size_total = count * (log->max_size_record_gpart + logger_header_bytes);
+    size_t size = log->max_size_record_gpart + logger_header_bytes;
+    if (flag != 0) {
+      size += size_special_flag;
+    }
+    size_total = count * size;
   } else {
     for (int i = 0; i < count; i++) {
       /* Log only the dark matter */
@@ -516,6 +543,9 @@ void logger_log_gparts(struct logger_writer *log, struct gpart *p, int count,
       size_t size = 0;
       gravity_logger_compute_size_and_mask(log->mask_data_pointers.gravity,
                                            &p[i], log_all_fields, &size, &mask);
+      if (flag != 0) {
+        size += size_special_flag;
+      }
       size_total += size + logger_header_bytes;
     }
   }
@@ -535,8 +565,15 @@ void logger_log_gparts(struct logger_writer *log, struct gpart *p, int count,
                                          log_all_fields, &size, &mask);
     size += logger_header_bytes;
 
-    if (special_flags != 0) {
+    /* Add the special flag. */
+    if (flag != 0) {
       mask |= log->logger_mask_data[logger_index_special_flags].mask;
+      size += size_special_flag;
+
+      /* reset the offset of the previous log */
+      if (flag & logger_flag_create || flag & logger_flag_mpi_enter) {
+        p[i].logger_data.last_offset = 0;
+      }
     }
 
     /* Copy everything into the buffer */

@@ -68,6 +68,12 @@ struct logger_index {
 
   /* The mapped file */
   struct mapped_file index;
+
+  /* Number of particles created. */
+  uint64_t nparts_created[swift_type_count];
+
+  /* Number of particles removed. */
+  uint64_t nparts_removed[swift_type_count];
 };
 
 void logger_index_write_sorted(struct logger_index *index);

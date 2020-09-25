@@ -72,14 +72,39 @@ void logger_index_read_header(struct logger_index *index,
          (char *)index->index.map + logger_index_integer_time_offset,
          logger_index_integer_time_size);
 
-  /* Read the number of particles */
+  /* Read the number of particles. */
   memcpy(index->nparts, (char *)index->index.map + logger_index_npart_offset,
          logger_index_npart_size);
 
-  /* Read if the file is sorted */
+  /* Read if the file is sorted. */
   memcpy(&index->is_sorted,
          (char *)index->index.map + logger_index_is_sorted_offset,
          logger_index_is_sorted_size);
+
+  /* Compute the position of the history of new particles. */
+  size_t count = 0;
+  for(int i = 0; i < swift_type_count; i++) {
+    count += index->nparts[i];
+  }
+  count *= sizeof(struct index_data);
+
+  /* Read the number of new particles. */
+  memcpy(&index->nparts_created,
+         (char *)index->index.map + logger_index_data_offset + count,
+         logger_index_npart_size);
+
+  /* Compute the position of the history of particles removed. */
+  size_t count_new = 0;
+  for(int i = 0; i < swift_type_count; i++) {
+    count_new += index->nparts_created[i];
+  }
+  count_new *= sizeof(struct index_data);
+
+  /* Read the number of particles removed. */
+  memcpy(&index->nparts_removed,
+         (char *)index->index.map + logger_index_data_offset + count +
+         logger_index_npart_size + count_new,
+         logger_index_npart_size);
 
   /* Close the file */
   logger_index_free(index);
