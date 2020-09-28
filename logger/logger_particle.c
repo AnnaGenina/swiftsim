@@ -92,11 +92,6 @@ __attribute__((always_inline)) INLINE size_t logger_particle_read_field(
     }
   }
 
-  /* Skip the special flag (dealt with externally). */
-  if (*mask & h->masks[logger_index_special_flags].mask) {
-    map += h->masks[logger_index_special_flags].size;
-  }
-
   return map - reader->log.log.map;
 }
 

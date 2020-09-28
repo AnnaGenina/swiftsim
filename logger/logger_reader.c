@@ -309,11 +309,12 @@ void logger_reader_get_number_particles(struct logger_reader *reader,
 
   for (int i = 0; i < swift_type_count; i++) {
     /* Count the number of particles present in the last index file. */
-    uint64_t count_prev = reader->index.index_prev.nparts[i];
+    const uint64_t count_prev = reader->index.index_prev.nparts[i];
     /* Count the number of particles that have been created since last index. */
-    uint64_t count_new = logger_reader_count_number_new_particles(reader, i);
+    const uint64_t count_new =
+        logger_reader_count_number_new_particles(reader, i);
     /* Count the number of particles that have been removed since last index. */
-    uint64_t count_removed =
+    const uint64_t count_removed =
         logger_reader_count_number_removed_particles(reader, i);
 
     n_parts[i] = (count_prev + count_new) - count_removed;
