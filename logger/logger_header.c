@@ -184,7 +184,8 @@ void header_read(struct header *h, struct logger_logfile *log) {
 
   /* check the special flag. */
   if (strcmp(h->masks[logger_index_special_flags].name, "SpecialFlags") != 0) {
-    error("The special flag is expected to be at position %i", logger_index_special_flags);
+    error("The special flag is expected to be at position %i",
+          logger_index_special_flags);
   }
 
   if (h->masks[logger_index_special_flags].size != sizeof(uint32_t)) {

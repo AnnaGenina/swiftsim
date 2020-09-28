@@ -186,8 +186,8 @@ size_t tools_check_record_consistency(const struct logger_reader *reader,
   size_t mask;
   size_t pointed_offset;
 
-  const size_t mask_special_flag = h->masks[header_get_field_index(
-      h, "SpecialFlags")].mask;
+  const size_t mask_special_flag =
+      h->masks[header_get_field_index(h, "SpecialFlags")].mask;
 
   /* read mask + offset. */
   map = logger_loader_io_read_mask(h, map, &mask, &pointed_offset);
@@ -213,8 +213,7 @@ size_t tools_check_record_consistency(const struct logger_reader *reader,
     error_python("Offset are corrupted.");
   }
 
-  if (pointed_offset == offset || pointed_offset == 0)
-    return offset_ret;
+  if (pointed_offset == offset || pointed_offset == 0) return offset_ret;
 
   /* read mask of the pointed record. */
   size_t pointed_mask = 0;

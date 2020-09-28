@@ -13,7 +13,7 @@ then
 fi
 
 # Run SWIFT
-../../swift --hydro --limiter --threads=4 sedov.yml 2>&1 | tee output.log
+mpirun -n 4 ../../swift_mpi --logger --hydro --limiter --threads=1 sedov.yml 2>&1 | tee output.log
 
 # Plot the solution
 python plotSolution.py 5

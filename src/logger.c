@@ -184,7 +184,7 @@ void logger_copy_part_fields(const struct logger_writer *log,
 
   /* Write the hydro fields */
   buff = hydro_logger_write_particle(log->mask_data_pointers.hydro, p, xp,
-      &mask, buff);
+                                     &mask, buff);
 
 #ifdef SWIFT_DEBUG_CHECKS
   if (mask) {
@@ -231,7 +231,8 @@ void logger_log_parts(struct logger_writer *log, const struct part *p,
 
   /* Build the special flag */
   const uint32_t special_flags = logger_pack_flags_and_data(flag, data);
-  const int size_special_flag = log->logger_mask_data[logger_index_special_flags].size;
+  const int size_special_flag =
+      log->logger_mask_data[logger_index_special_flags].size;
 
   /* Compute the size of the buffer. */
   size_t size_total = 0;
@@ -274,7 +275,7 @@ void logger_log_parts(struct logger_writer *log, const struct part *p,
       size += size_special_flag;
 
       /* reset the offset of the previous log */
-      if (flag & logger_flag_create || flag & logger_flag_mpi_enter) {
+      if (flag == logger_flag_create || flag == logger_flag_mpi_enter) {
         xp[i].logger_data.last_offset = 0;
       }
     }
@@ -284,19 +285,19 @@ void logger_log_parts(struct logger_writer *log, const struct part *p,
                             &xp[i].logger_data.last_offset, offset_new, buff,
                             special_flags);
 
-    /* Write the particle into the history if needed. */
-    if (flag & logger_flag_create || flag & logger_flag_mpi_enter) {
-      logger_history_log_part(&log->history_new, &p[i], &xp[i]);
-    } else if (flag & logger_flag_change_type || flag & logger_flag_delete ||
-               flag & logger_flag_mpi_exit) {
-      logger_history_log_part(&log->history_removed, &p[i], &xp[i]);
-    }
-
     /* Update the pointers */
     xp[i].logger_data.last_offset = offset_new;
     xp[i].logger_data.steps_since_last_output = 0;
     buff += size;
     offset_new += size;
+
+    /* Write the particle into the history if needed. */
+    if (flag == logger_flag_create || flag == logger_flag_mpi_enter) {
+      logger_history_log_part(&log->history_new, &p[i], &xp[i]);
+    } else if (flag == logger_flag_change_type || flag == logger_flag_delete ||
+               flag == logger_flag_mpi_exit) {
+      logger_history_log_part(&log->history_removed, &p[i], &xp[i]);
+    }
   }
 }
 
@@ -379,7 +380,8 @@ void logger_log_sparts(struct logger_writer *log, struct spart *sp, int count,
                        const enum logger_special_flags flag, const int data) {
   /* Build the special flag */
   const uint32_t special_flags = logger_pack_flags_and_data(flag, data);
-  const int size_special_flag = log->logger_mask_data[logger_index_special_flags].size;
+  const int size_special_flag =
+      log->logger_mask_data[logger_index_special_flags].size;
 
   /* Compute the size of the buffer. */
   size_t size_total = 0;
@@ -420,7 +422,7 @@ void logger_log_sparts(struct logger_writer *log, struct spart *sp, int count,
       size += size_special_flag;
 
       /* reset the offset of the previous log */
-      if (flag & logger_flag_create || flag & logger_flag_mpi_enter) {
+      if (flag == logger_flag_create || flag == logger_flag_mpi_enter) {
         sp[i].logger_data.last_offset = 0;
       }
     }
@@ -430,19 +432,19 @@ void logger_log_sparts(struct logger_writer *log, struct spart *sp, int count,
                              &sp[i].logger_data.last_offset, offset_new, buff,
                              special_flags);
 
-    /* Write the particle into the history if needed. */
-    if (flag & logger_flag_create || flag & logger_flag_mpi_enter) {
-      logger_history_log_spart(&log->history_new, &sp[i]);
-    } else if (flag & logger_flag_change_type || flag & logger_flag_delete ||
-               flag & logger_flag_mpi_exit) {
-      logger_history_log_spart(&log->history_removed, &sp[i]);
-    }
-
     /* Update the pointers */
     sp[i].logger_data.last_offset = offset_new;
     sp[i].logger_data.steps_since_last_output = 0;
     buff += size;
     offset_new += size;
+
+    /* Write the particle into the history if needed. */
+    if (flag == logger_flag_create || flag == logger_flag_mpi_enter) {
+      logger_history_log_spart(&log->history_new, &sp[i]);
+    } else if (flag == logger_flag_change_type || flag == logger_flag_delete ||
+               flag == logger_flag_mpi_exit) {
+      logger_history_log_spart(&log->history_removed, &sp[i]);
+    }
   }
 }
 
@@ -524,7 +526,8 @@ void logger_log_gparts(struct logger_writer *log, struct gpart *p, int count,
                        const enum logger_special_flags flag, const int data) {
   /* Build the special flag */
   const uint32_t special_flags = logger_pack_flags_and_data(flag, data);
-  const int size_special_flag = log->logger_mask_data[logger_index_special_flags].size;
+  const int size_special_flag =
+      log->logger_mask_data[logger_index_special_flags].size;
 
   /* Compute the size of the buffer. */
   size_t size_total = 0;
@@ -571,7 +574,7 @@ void logger_log_gparts(struct logger_writer *log, struct gpart *p, int count,
       size += size_special_flag;
 
       /* reset the offset of the previous log */
-      if (flag & logger_flag_create || flag & logger_flag_mpi_enter) {
+      if (flag == logger_flag_create || flag == logger_flag_mpi_enter) {
         p[i].logger_data.last_offset = 0;
       }
     }
@@ -580,19 +583,19 @@ void logger_log_gparts(struct logger_writer *log, struct gpart *p, int count,
     logger_copy_gpart_fields(log, &p[i], e, mask, &p[i].logger_data.last_offset,
                              offset_new, buff, special_flags);
 
-    /* Write the particle into the history if needed. */
-    if (flag & logger_flag_create || flag & logger_flag_mpi_enter) {
-      logger_history_log_gpart(&log->history_new, &p[i]);
-    } else if (flag & logger_flag_change_type || flag & logger_flag_delete ||
-               flag & logger_flag_mpi_exit) {
-      logger_history_log_gpart(&log->history_removed, &p[i]);
-    }
-
     /* Update the pointers */
     p[i].logger_data.last_offset = offset_new;
     p[i].logger_data.steps_since_last_output = 0;
     buff += size;
     offset_new += size;
+
+    /* Write the particle into the history if needed. */
+    if (flag == logger_flag_create || flag == logger_flag_mpi_enter) {
+      logger_history_log_gpart(&log->history_new, &p[i]);
+    } else if (flag == logger_flag_change_type || flag == logger_flag_delete ||
+               flag == logger_flag_mpi_exit) {
+      logger_history_log_gpart(&log->history_removed, &p[i]);
+    }
   }
 }
 
@@ -893,7 +896,7 @@ void logger_init(struct logger_writer *log, const struct engine *e,
   const float max_memory_size =
       parser_get_opt_param_float(params, "Logger:maximal_memory_size", 1.);
   log->maximal_size_history =
-      max_memory_size / sizeof(struct logger_index_data);
+      1e9 * max_memory_size / sizeof(struct logger_index_data);
 
   if (e->nodeID == 0) {
     message("Maximal memory size for the logger history: %g GB",

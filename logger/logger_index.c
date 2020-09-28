@@ -83,7 +83,7 @@ void logger_index_read_header(struct logger_index *index,
 
   /* Compute the position of the history of new particles. */
   size_t count = 0;
-  for(int i = 0; i < swift_type_count; i++) {
+  for (int i = 0; i < swift_type_count; i++) {
     count += index->nparts[i];
   }
   count *= sizeof(struct index_data);
@@ -95,7 +95,7 @@ void logger_index_read_header(struct logger_index *index,
 
   /* Compute the position of the history of particles removed. */
   size_t count_new = 0;
-  for(int i = 0; i < swift_type_count; i++) {
+  for (int i = 0; i < swift_type_count; i++) {
     count_new += index->nparts_created[i];
   }
   count_new *= sizeof(struct index_data);
@@ -103,7 +103,7 @@ void logger_index_read_header(struct logger_index *index,
   /* Read the number of particles removed. */
   memcpy(&index->nparts_removed,
          (char *)index->index.map + logger_index_data_offset + count +
-         logger_index_npart_size + count_new,
+             logger_index_npart_size + count_new,
          logger_index_npart_size);
 
   /* Close the file */
@@ -143,6 +143,54 @@ struct index_data *logger_index_get_data(struct logger_index *index, int type) {
 
   const char *ret =
       (char *)index->index.map + logger_index_data_offset + type_offset;
+  return (struct index_data *)ret;
+}
+
+/**
+ * @brief Get the #index_data of a particle type.
+ *
+ * @param index The #logger_index.
+ * @param type The particle type.
+ */
+struct index_data *logger_index_get_created_history(struct logger_index *index,
+                                                    int type) {
+
+  /* Get the position after the previous array. */
+  char *ret = (char *)logger_index_get_data(index, swift_type_count);
+
+  /* Get the offset of particles of this type by skipping entries of lower
+   * types. */
+  size_t count = 0;
+  for (int i = 0; i < type; i++) {
+    count += index->nparts_created[i];
+  }
+  const size_t type_offset = count * sizeof(struct index_data);
+
+  ret += type_offset + logger_index_npart_size;
+  return (struct index_data *)ret;
+}
+
+/**
+ * @brief Get the #index_data of a particle type.
+ *
+ * @param index The #logger_index.
+ * @param type The particle type.
+ */
+struct index_data *logger_index_get_removed_history(struct logger_index *index,
+                                                    int type) {
+
+  /* Get the position after the previous array. */
+  char *ret = (char *)logger_index_get_created_history(index, swift_type_count);
+
+  /* Get the offset of particles of this type by skipping entries of lower
+   * types. */
+  size_t count = 0;
+  for (int i = 0; i < type; i++) {
+    count += index->nparts_removed[i];
+  }
+  const size_t type_offset = count * sizeof(struct index_data);
+
+  ret += type_offset + logger_index_npart_size;
   return (struct index_data *)ret;
 }
 

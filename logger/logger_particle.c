@@ -111,9 +111,10 @@ __attribute__((always_inline)) INLINE size_t logger_particle_read_field(
  *
  * @return The special flag.
  */
-__attribute__((always_inline)) INLINE enum logger_special_flags logger_particle_read_special_flag(
-    const struct logger_reader *reader, size_t offset, size_t *mask,
-    size_t *h_offset, int *data) {
+__attribute__((always_inline)) INLINE enum logger_special_flags
+logger_particle_read_special_flag(const struct logger_reader *reader,
+                                  size_t offset, size_t *mask, size_t *h_offset,
+                                  int *data) {
 
   /* Get a few pointers. */
   const struct header *h = &reader->log.header;
